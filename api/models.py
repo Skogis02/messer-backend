@@ -5,6 +5,9 @@ from django.dispatch import receiver
 
 class DefaultUser(AbstractUser):
 
+    def __str__(self):
+        return self.username
+
     def has_friend(self, possible_friend):
         return self.friendships.filter(friend=possible_friend).exists()
 
