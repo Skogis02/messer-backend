@@ -5,6 +5,8 @@ from django.dispatch import receiver
 
 class DefaultUser(AbstractUser):
 
+    email = models.EmailField(max_length=50, unique=True)
+
     def __str__(self):
         return self.username
 

@@ -3,13 +3,13 @@ from .models import DefaultUser, Friendship, FriendRequest, Message
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .serializers import DefaultRegistrationSerializer
+from .serializers import DefaultUserSerializer
 
 
 class Register(APIView):
 
     def post(self, request):
-        serializer = DefaultRegistrationSerializer(data=request.data)
+        serializer = DefaultUserSerializer(data=request.data)
         print(request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
