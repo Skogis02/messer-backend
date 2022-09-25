@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import DefaultUser
+from .models import DefaultUser, Friendship
 from django.contrib.auth.hashers import make_password
 
 
@@ -18,6 +18,7 @@ class DefaultLoginSerializer(serializers.Serializer):
 
     username = serializers.CharField(max_length=50)
     password = serializers.CharField(max_length=50)
+
 
 
 

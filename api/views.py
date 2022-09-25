@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from .models import DefaultUser, Friendship, FriendRequest, Message
 from rest_framework import status, exceptions
@@ -41,6 +41,15 @@ class Login(APIView):
         return Response({'Authentication succeeded': 'Logged in.'}, status=status.HTTP_200_OK)
 
 
+class Logout(APIView):
+
+    permission_classes = []
+
+    def post(self, request):
+        logout(request)
+        return Response(status=status.HTTP_200_OK)
+
+
 class VerifySession(APIView):
     authentication_classes = [SessionAuthentication]
 
@@ -48,9 +57,9 @@ class VerifySession(APIView):
         return Response(status=status.HTTP_200_OK)
 
 
+class GetFriends(APIView):
 
-
-
-
-# Create your views here.
-
+    def post(self, request):
+        user = request.user
+        friends = user.friends.values_list('username', flat=True)
+        return Response(friends, status=status.HTTP_200_OK)
