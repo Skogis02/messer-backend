@@ -14,4 +14,13 @@ class DefaultUserSerializer(serializers.ModelSerializer):
         return make_password(data)
 
 
+class DefaultLoginSerializer(serializers.Serializer):
+
+    username = serializers.CharField(max_length=50)
+    password = serializers.CharField(max_length=50)
+
+
+
+
+
 
