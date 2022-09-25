@@ -6,10 +6,14 @@ from .models import DefaultUser, Friendship, FriendRequest, Message
 from rest_framework import status, exceptions
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.authentication import SessionAuthentication
 from .serializers import DefaultUserSerializer, DefaultLoginSerializer
 
 
 class Register(APIView):
+
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         serializer = DefaultUserSerializer(data=request.data)
@@ -21,6 +25,9 @@ class Register(APIView):
 
 
 class Login(APIView):
+
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         serializer = DefaultLoginSerializer(data=request.data)
@@ -35,6 +42,7 @@ class Login(APIView):
 
 
 class VerifySession(APIView):
+    authentication_classes = [SessionAuthentication]
 
     def post(self, request):
         return Response(status=status.HTTP_200_OK)
