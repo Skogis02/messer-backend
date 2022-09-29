@@ -10,6 +10,7 @@ from rest_framework.authentication import SessionAuthentication
 from .serializers import DefaultUserSerializer, DefaultLoginSerializer
 
 
+
 class Register(APIView):
 
     authentication_classes = []
@@ -63,3 +64,4 @@ class GetFriends(APIView):
         user = request.user
         friends = user.friends.values_list('username', flat=True)
         return Response(friends, status=status.HTTP_200_OK)
+
