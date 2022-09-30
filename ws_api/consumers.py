@@ -1,13 +1,21 @@
 import json
 from channels.generic.websocket import WebsocketConsumer
+from channels.auth import get_user
+from asgiref.sync import async_to_sync
+from django.dispatch import receiver
+from django.contrib.auth.signals import user_logged_in, user_logged_out
+
+from api.models import DefaultUser
+from django.contrib.auth.models import AnonymousUser
 
 
 def login_required(endpoint):
     def protected_endpoint(*args, **kwargs):
         self = args[0]
         assert type(self) == APIConsumer, TypeError("Missing arg 'self'!")
-        if not self.user.is_authenticated:
-            self.send("Authentication required: Please log in.")
+        if not self.scope['session'].exists(self.scope['session'].session_key):
+            self.scope['session'].flush()
+            self.send('Authentication Failed: Login Required!')
             return
         endpoint(*args, **kwargs)
 
@@ -27,7 +35,7 @@ class APIConsumer(WebsocketConsumer):
         - Searching for usernames
         - Login/Logout/Register
 
-        A message is expected to use the following format:
+        A message is expected to have the following format:
 
         {
         type: "<TYPE>",
@@ -45,10 +53,9 @@ class APIConsumer(WebsocketConsumer):
         }
 
     def connect(self):
-        user = self.scope["user"]
-        print(user)
         self.accept()
         self.user = self.scope['user']
+        print(self.user)
 
     def receive(self, text_data=None, bytes_data=None):
         try:
