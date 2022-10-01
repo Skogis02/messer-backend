@@ -53,9 +53,10 @@ class APIConsumer(WebsocketConsumer):
         user_logged_out.connect(receiver=self.logout_callback)
 
     def connect(self):
+        if not (self.user and self.user.is_authenticated):
+            self.close(code="Login required!")
+            return
         self.accept()
-        self.user = self.scope['user']
-        print(self.user)
 
     def receive(self, text_data=None, bytes_data=None):
         try:
