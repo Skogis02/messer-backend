@@ -1,8 +1,10 @@
 import json
 from channels.generic.websocket import WebsocketConsumer
 from asgiref.sync import async_to_sync
-from django.contrib.auth.signals import user_logged_in, user_logged_out
-from api.models import DefaultUser
+from django.db.models.signals import post_save
+from django.contrib.auth.signals import user_logged_out
+from api.models import Message
+from api.serializers import MessageOutSerializer
 
 
 def login_required(endpoint):
@@ -48,6 +50,7 @@ class APIConsumer(WebsocketConsumer):
             "send_friends_request": None,
         }
         user_logged_out.connect(receiver=self.logout_callback)
+        post_save.connect(receiver=self.received_message_callback)
 
     def connect(self):
         self.user = self.scope['user']
@@ -77,6 +80,8 @@ class APIConsumer(WebsocketConsumer):
         endpoint(msg_data)
         return
 
+    # ENDPOINTS:
+
     def send_message(self, data):
 
         """
@@ -96,12 +101,29 @@ class APIConsumer(WebsocketConsumer):
         friend_queryset = self.user.friends.filter(username=friend_username)
         if not friend_queryset.exists():
             self.send("The provided user is not in your friends list.")
-        self.send(f"sending message to {friend_username}")
+        friend = friend_queryset.first()
+        friendship = self.user.friendships.filter(friend=friend).first()
+        Message.objects.create(friendship=friendship, content=data['content'])
+
+    # CALLBACKS
 
     def logout_callback(self, sender, request, user, **kwargs):
-        if self.user == user:
-            self.send("Connection closing: Logging out.")
-            async_to_sync(self.close())
+        if not self.user == user:
+            return
+        self.send("Connection closing: Logging out.")
+        async_to_sync(self.close())
+
+    def received_message_callback(self, instance, created, **kwargs):
+        if not (created and instance.friendship.friend == self.user):
+            return
+        serializer = MessageOutSerializer(instance)
+        self.wrap_and_send(title="new_message", content=serializer.data)
+
+    def wrap_and_send(self, title, content):
+        data = {'title': title,
+                'content': content}
+        self.send(json.dumps(data))
+
 
 
 
