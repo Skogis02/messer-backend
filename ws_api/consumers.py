@@ -1,11 +1,8 @@
 import json
 from channels.generic.websocket import WebsocketConsumer
-from channels.auth import get_user
 from asgiref.sync import async_to_sync
-from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from api.models import DefaultUser
-from django.contrib.auth.models import AnonymousUser
 
 
 def login_required(endpoint):
@@ -53,6 +50,7 @@ class APIConsumer(WebsocketConsumer):
         user_logged_out.connect(receiver=self.logout_callback)
 
     def connect(self):
+        self.user = self.scope['user']
         if not (self.user and self.user.is_authenticated):
             self.close(code="Login required!")
             return
@@ -104,8 +102,6 @@ class APIConsumer(WebsocketConsumer):
         if self.user == user:
             self.send("Connection closing: Logging out.")
             async_to_sync(self.close())
-
-
 
 
 
