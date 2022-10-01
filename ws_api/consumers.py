@@ -4,7 +4,6 @@ from channels.auth import get_user
 from asgiref.sync import async_to_sync
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
-
 from api.models import DefaultUser
 from django.contrib.auth.models import AnonymousUser
 
@@ -51,6 +50,7 @@ class APIConsumer(WebsocketConsumer):
             "send_message": self.send_message,
             "send_friends_request": None,
         }
+        user_logged_out.connect(receiver=self.logout_callback)
 
     def connect(self):
         self.accept()
@@ -78,7 +78,6 @@ class APIConsumer(WebsocketConsumer):
         endpoint(msg_data)
         return
 
-    @login_required
     def send_message(self, data):
 
         """
@@ -99,6 +98,12 @@ class APIConsumer(WebsocketConsumer):
         if not friend_queryset.exists():
             self.send("The provided user is not in your friends list.")
         self.send(f"sending message to {friend_username}")
+
+    def logout_callback(self, sender, request, user, **kwargs):
+        if self.user == user:
+            self.send("Connection closing: Logging out.")
+            async_to_sync(self.close())
+
 
 
 
