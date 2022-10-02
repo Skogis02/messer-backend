@@ -4,7 +4,7 @@ from asgiref.sync import async_to_sync
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Friendship, FriendRequest, Message
-from api.serializers import MessageOutSerializer, FriendRequestOutSerializer
+from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
 
 
 def login_required(endpoint):
@@ -25,7 +25,8 @@ class APIConsumer(WebsocketConsumer):
         Requires the following endpoints:
 
         - Sending a message
-        - Making a friends request
+        - Making a friend request
+        - Respond to friend request
 
         Future:
 
@@ -48,10 +49,12 @@ class APIConsumer(WebsocketConsumer):
         self.endpoints = {
             "send_message": self.send_message,
             "send_friend_request": self.send_friend_request,
+            "respond_to_friend_request": self.respond_to_friend_request
         }
         user_logged_out.connect(receiver=self.logout_callback)
         post_save.connect(receiver=self.received_message_callback, sender=Message)
         post_save.connect(receiver=self.received_friend_request_callback, sender=FriendRequest)
+        post_save.connect(receiver=self.new_friend_callback, sender=Friendship)
 
     def connect(self):
         self.user = self.scope['user']
@@ -128,6 +131,33 @@ class APIConsumer(WebsocketConsumer):
         except AssertionError as e:
             self.send('That user is already in your friends list!')
 
+    def respond_to_friend_request(self, data):
+
+        """
+        Required fields:
+        -'from_user': str
+        -'accept': bool
+        """
+
+        if 'from_user' not in data:
+            self.send("Object 'data' missing key 'from_user")
+            return
+        if 'accept' not in data:
+            self.send("Object 'data' missing key 'accept")
+            return
+        from_username, accept = data['from_user'], data['accept']
+        friend_request_queryset = FriendRequest.objects.filter(from_user__username=from_username)
+        if not friend_request_queryset.exists():
+            self.send('You do not have a pending request from that user!')
+            return
+        if accept:
+            friend_request_queryset.first().accept_request()
+            self.send('Friend request accepted')
+            return
+        friend_request_queryset.first().reject_request()
+        self.send('Friend request rejected')
+
+
     # CALLBACKS
 
     def logout_callback(self, sender, request, user, **kwargs):
@@ -140,13 +170,19 @@ class APIConsumer(WebsocketConsumer):
         if not (created and instance.friendship.friend == self.user):
             return
         serializer = MessageOutSerializer(instance)
-        self.wrap_and_send(title="new_message", content=serializer.data)
+        self.wrap_and_send(title="received_message", content=serializer.data)
 
     def received_friend_request_callback(self, instance, created, **kwargs):
         if not (created and instance.to_user == self.user):
             return
         serializer = FriendRequestOutSerializer(instance)
         self.wrap_and_send(title="new_friend_request", content=serializer.data)
+
+    def new_friend_callback(self, instance, created, **kwargs):
+        if not (created and instance.user == self.user):
+            return
+        serializer = FriendshipOutSerializer(instance)
+        self.wrap_and_send(title="new_friend", content=serializer.data)
 
     # UTILITIES
 

@@ -36,7 +36,10 @@ class FriendRequest(models.Model):
         from_user = self.from_user
         to_user = self.to_user
         self.delete()
-        Friendship.objects.get_or_create(from_user, to_user)
+        Friendship.objects.get_or_create(user=from_user, friend=to_user)
+
+    def reject_request(self):
+        self.delete()
 
 
 class Message(models.Model):
