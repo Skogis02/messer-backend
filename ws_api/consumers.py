@@ -5,6 +5,7 @@ from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Friendship, FriendRequest, Message
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
+from .serializers import EndpointInSerializer, SendMessageSerializer
 
 
 def login_required(endpoint):
@@ -62,7 +63,7 @@ class APIConsumer(WebsocketConsumer):
         post_save.connect(receiver=self.received_friend_request_callback, sender=FriendRequest)
         post_save.connect(receiver=self.new_friend_callback, sender=Friendship)
         self.endpoints = {
-            "send_message": Endpoint(endpoint=self.send_message),
+            "send_message": Endpoint(endpoint=self.send_message, serializer=SendMessageSerializer),
             "send_friend_request": Endpoint(endpoint=self.send_friend_request),
             "respond_to_friend_request": Endpoint(endpoint=self.send_friend_request)
         }
@@ -82,19 +83,25 @@ class APIConsumer(WebsocketConsumer):
             print(e)
             self.send("Invalid format.")
             return
-        if 'endpoint' not in msg:
-            self.send("Missing key 'endpoint'.")
+        # if 'endpoint' not in msg:
+        #     self.send("Missing key 'endpoint'.")
+        #     return
+        # elif 'content' not in msg:
+        #     self.send("Missing key 'content''.")
+        #     return
+        # msg_endpoint, msg_data = msg['endpoint'], msg['content']
+        # if not(self.endpoints and msg_endpoint in self.endpoints):
+        #     self.send("'Invalid endpoint.")
+        #     return
+        #endpoint = self.endpoints[msg_endpoint]
+        #endpoint(msg_data)
+
+        serializer = EndpointInSerializer(data=msg, context={'consumer': self})
+        if not serializer.is_valid():
+            self.wrap_and_send('Error', serializer.errors)
             return
-        elif 'content' not in msg:
-            self.send("Missing key 'content''.")
-            return
-        msg_endpoint, msg_data = msg['endpoint'], msg['content']
-        if not(self.endpoints and msg_endpoint in self.endpoints):
-            self.send("'Invalid endpoint.")
-            return
-        endpoint = self.endpoints[msg_endpoint]
-        endpoint(msg_data)
-        return
+        endpoint, serializer = serializer.validated_data['endpoint'], serializer.validated_data['content']
+        endpoint(serializer.validated_data)
 
     # ENDPOINTS:
 
