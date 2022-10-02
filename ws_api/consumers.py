@@ -20,6 +20,15 @@ def login_required(endpoint):
     return protected_endpoint
 
 
+class Endpoint:
+    def __init__(self, endpoint: callable, serializer=None):
+        self.endpoint = endpoint
+        self.serializer = serializer
+
+    def __call__(self, *args, **kwargs):
+        return self.endpoint(*args, **kwargs)
+
+
 class APIConsumer(WebsocketConsumer):
     """
         Requires the following endpoints:
@@ -37,8 +46,8 @@ class APIConsumer(WebsocketConsumer):
         A message is expected to have the following format:
 
         {
-        type: "<TYPE>",
-        value: {<OBJECT>}
+        endpoint: "<TYPE>",
+        content: {<OBJECT>}
         }
 
         """
@@ -46,15 +55,17 @@ class APIConsumer(WebsocketConsumer):
     def __init__(self):
         super().__init__(self)
         self.user = None
-        self.endpoints = {
-            "send_message": self.send_message,
-            "send_friend_request": self.send_friend_request,
-            "respond_to_friend_request": self.respond_to_friend_request
-        }
+        self.endpoints = None
+        self.request_count = None
         user_logged_out.connect(receiver=self.logout_callback)
         post_save.connect(receiver=self.received_message_callback, sender=Message)
         post_save.connect(receiver=self.received_friend_request_callback, sender=FriendRequest)
         post_save.connect(receiver=self.new_friend_callback, sender=Friendship)
+        self.endpoints = {
+            "send_message": Endpoint(endpoint=self.send_message),
+            "send_friend_request": Endpoint(endpoint=self.send_friend_request),
+            "respond_to_friend_request": Endpoint(endpoint=self.send_friend_request)
+        }
 
     def connect(self):
         self.user = self.scope['user']
@@ -74,11 +85,11 @@ class APIConsumer(WebsocketConsumer):
         if 'endpoint' not in msg:
             self.send("Missing key 'endpoint'.")
             return
-        elif 'data' not in msg:
-            self.send("Missing key 'data''.")
+        elif 'content' not in msg:
+            self.send("Missing key 'content''.")
             return
-        msg_endpoint, msg_data = msg['endpoint'], msg['data']
-        if msg_endpoint not in self.endpoints:
+        msg_endpoint, msg_data = msg['endpoint'], msg['content']
+        if not(self.endpoints and msg_endpoint in self.endpoints):
             self.send("'Invalid endpoint.")
             return
         endpoint = self.endpoints[msg_endpoint]
@@ -157,7 +168,6 @@ class APIConsumer(WebsocketConsumer):
         friend_request_queryset.first().reject_request()
         self.send('Friend request rejected')
 
-
     # CALLBACKS
 
     def logout_callback(self, sender, request, user, **kwargs):
@@ -170,26 +180,27 @@ class APIConsumer(WebsocketConsumer):
         if not (created and instance.friendship.friend == self.user):
             return
         serializer = MessageOutSerializer(instance)
-        self.wrap_and_send(title="received_message", content=serializer.data)
+        self.wrap_and_send(msg_type="received_message", content=serializer.data)
 
     def received_friend_request_callback(self, instance, created, **kwargs):
         if not (created and instance.to_user == self.user):
             return
         serializer = FriendRequestOutSerializer(instance)
-        self.wrap_and_send(title="new_friend_request", content=serializer.data)
+        self.wrap_and_send(msg_type="new_friend_request", content=serializer.data)
 
     def new_friend_callback(self, instance, created, **kwargs):
         if not (created and instance.user == self.user):
             return
         serializer = FriendshipOutSerializer(instance)
-        self.wrap_and_send(title="new_friend", content=serializer.data)
+        self.wrap_and_send(msg_type="new_friend", content=serializer.data)
 
     # UTILITIES
 
-    def wrap_and_send(self, title, content):
-        data = {'title': title,
+    def wrap_and_send(self, msg_type, content):
+        data = {'type': msg_type,
                 'content': content}
         self.send(json.dumps(data))
+
 
 
 
