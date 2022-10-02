@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import DefaultUser, Message
+from .models import DefaultUser, Message, FriendRequest
 from django.contrib.auth.hashers import make_password
 
 
@@ -27,6 +27,14 @@ class MessageOutSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = ['from_user', 'created_at', 'has_been_read', 'read_at', 'content']
+
+
+class FriendRequestOutSerializer(serializers.ModelSerializer):
+    to_user = serializers.CharField(source='to_user.username')
+
+    class Meta:
+        model = FriendRequest
+        fields = ['to_user', 'created_at']
 
 
 

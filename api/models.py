@@ -67,4 +67,5 @@ def create_reversed_friendship(instance, created, **kwargs):
 
 @receiver(models.signals.pre_save, sender=FriendRequest)
 def stop_request_to_friend(instance, **kwargs):
-    assert not instance.from_user.has_friend(instance.to_user), 'Cannot send friend request to current friend!'
+    assert not instance.from_user.has_friend(instance.to_user), \
+        AssertionError('Cannot send friend request to current friend!')
