@@ -39,6 +39,7 @@ class APIConsumer(WebsocketConsumer):
         - Sending a message
         - Making a friend request
         - Respond to friend request
+        - Remove a friend
 
         Future:
 
@@ -93,30 +94,15 @@ class APIConsumer(WebsocketConsumer):
             self.wrap_and_send('Response', serializer.errors)
             return
         endpoint, endpoint_serializer = serializer.validated_data['endpoint'], serializer.validated_data['content']
-        endpoint(endpoint_serializer.validated_data)
+        endpoint(**endpoint_serializer.validated_data)
 
     # ENDPOINTS:
 
-    def send_message(self, data):
-
-        """
-        Required fields:
-        -'friendship'
-        -'content'
-        """
-
-        friendship = data['friendship']
-        Message.objects.create(friendship=friendship, content=data['content'])
+    def send_message(self, friendship, content):
+        Message.objects.create(friendship=friendship, content=content)
         self.wrap_and_send('Response', {'Success': 'Message sent.'})
 
-    def send_friend_request(self, data):
-
-        """
-        Required fields:
-        -'friend_request'
-        """
-
-        friend_request = data['friend_request']
+    def send_friend_request(self, friend_request):
         try:
             friend_request.save(force_insert=True)
         except IntegrityError as e:
@@ -125,21 +111,16 @@ class APIConsumer(WebsocketConsumer):
             print(e)
             self.wrap_and_send('Response', {'Error': str(e)})
 
-    def respond_to_friend_request(self, data):
-
-        """
-        Required fields:
-        -'from_user': str
-        -'accept': bool
-        """
-
-        friend_request, accept = data['friend_request'], data['accept']
+    def respond_to_friend_request(self, friend_request, accept):
         if accept:
             friend_request.accept_request()
             self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend request accepted.'})
             return
         friend_request.reject_request()
         self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend request rejected.'})
+
+    def remove_friend(self, data):
+        pass
 
     # CALLBACKS
 
