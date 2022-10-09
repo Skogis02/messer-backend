@@ -1,11 +1,12 @@
 import json
 from channels.generic.websocket import WebsocketConsumer
 from asgiref.sync import async_to_sync
+from django.db.utils import IntegrityError
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Friendship, FriendRequest, Message
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
-from .serializers import EndpointInSerializer, SendMessageSerializer
+from .serializers import EndpointInSerializer, SendMessageSerializer, SendFriendRequestSerializer
 
 
 def login_required(endpoint):
@@ -64,7 +65,7 @@ class APIConsumer(WebsocketConsumer):
         post_save.connect(receiver=self.new_friend_callback, sender=Friendship)
         self.endpoints = {
             "send_message": Endpoint(endpoint=self.send_message, serializer=SendMessageSerializer),
-            "send_friend_request": Endpoint(endpoint=self.send_friend_request),
+            "send_friend_request": Endpoint(endpoint=self.send_friend_request, serializer=SendFriendRequestSerializer),
             "respond_to_friend_request": Endpoint(endpoint=self.send_friend_request)
         }
 
@@ -87,8 +88,8 @@ class APIConsumer(WebsocketConsumer):
         if not serializer.is_valid():
             self.wrap_and_send('Response', serializer.errors)
             return
-        endpoint, serializer = serializer.validated_data['endpoint'], serializer.validated_data['content']
-        endpoint(serializer.validated_data)
+        endpoint, endpoint_serializer = serializer.validated_data['endpoint'], serializer.validated_data['content']
+        endpoint(endpoint_serializer.validated_data)
 
     # ENDPOINTS:
 
@@ -102,28 +103,23 @@ class APIConsumer(WebsocketConsumer):
 
         friendship = data['friendship']
         Message.objects.create(friendship=friendship, content=data['content'])
-        self.wrap_and_send('Confirmation', 'Message sent!')
+        self.wrap_and_send('Response', {'Success': 'Message sent.'})
 
     def send_friend_request(self, data):
 
         """
         Required fields:
-        -'to_user'
+        -'friend_request'
         """
 
-        if 'to_user' not in data:
-            self.send("Object 'data' missing key 'to_user'.")
-            return
-        to_username = data['to_user']
-        to_user_queryset = DefaultUser.objects.filter(username=to_username)
-        if not to_user_queryset.exists():
-            self.send('That user could not be found!')
-        to_user = to_user_queryset.first()
+        friend_request = data['friend_request']
         try:
-            FriendRequest.objects.create(from_user=self.user, to_user=to_user)
-            self.send('Message sent!')
+            friend_request.save(force_insert=True)
+        except IntegrityError as e:
+            self.wrap_and_send('Response', {'Error': 'You have already sent a friend request to that user.'})
         except AssertionError as e:
-            self.send('That user is already in your friends list!')
+            print(e)
+            self.wrap_and_send('Response', {'Error': str(e)})
 
     def respond_to_friend_request(self, data):
 

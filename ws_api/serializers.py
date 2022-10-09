@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from api.models import FriendRequest, DefaultUser
 
 
 class EndpointInSerializer(serializers.Serializer):
@@ -34,5 +35,21 @@ class SendMessageSerializer(serializers.Serializer):
         friendship_queryset = self.consumer.user.friendships.filter(friend__username=data['friend'])
         if not friendship_queryset.exists():
             raise serializers.ValidationError("That user is not in your friend list.", code='Forbidden')
-        validated_data = {'friendship': friendship_queryset.first(), 'content': data['content']}
-        return validated_data
+        return {'friendship': friendship_queryset.first(), 'content': data['content']}
+
+
+class SendFriendRequestSerializer(serializers.Serializer):
+    to_user = serializers.CharField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+        assert 'consumer' in self.context, AssertionError("Context missing key 'consumer'.")
+        self.consumer = self.context['consumer']
+
+    def validate(self, data):
+        to_user = data['to_user']
+        to_user_queryset = DefaultUser.objects.filter(username=to_user)
+        if not to_user_queryset.exists():
+            raise serializers.ValidationError('That user does not exists.', code='Not Found')
+        friend_request = FriendRequest(from_user=self.consumer.user, to_user=to_user_queryset.first())
+        return {'friend_request': friend_request}
