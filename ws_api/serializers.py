@@ -2,6 +2,14 @@ from rest_framework import serializers
 from api.models import FriendRequest, DefaultUser
 
 
+class ConsumerSpecificSerializer(serializers.Serializer):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+        assert 'consumer' in self.context, AssertionError("Context missing key 'consumer'.")
+        self.consumer = self.context['consumer']
+
+
 class EndpointInSerializer(serializers.Serializer):
     endpoint = serializers.ChoiceField(choices=[])
     content = serializers.JSONField()
@@ -70,3 +78,14 @@ class RespondToFriendRequestSerializer(serializers.Serializer):
         if not friend_request_queryset.exists():
             raise serializers.ValidationError('You do not have any pending friend requests from that user.')
         return {'friend_request': friend_request_queryset.first(), 'accept': accept}
+
+
+class RemoveFriendSerializer(ConsumerSpecificSerializer):
+    friend = serializers.CharField()
+
+    def validate(self, data):
+        friend = data['friend']
+        friendship_queryset = self.consumer.user.friendships.filter(friend__username=friend)
+        if not friendship_queryset.exists():
+            raise serializers.ValidationError('You do not have a friend with that name.')
+        return {'friendship': friendship_queryset.first()}

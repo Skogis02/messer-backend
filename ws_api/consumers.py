@@ -7,7 +7,7 @@ from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Friendship, FriendRequest, Message
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
 from .serializers import EndpointInSerializer, SendMessageSerializer, SendFriendRequestSerializer, \
-    RespondToFriendRequestSerializer
+    RespondToFriendRequestSerializer, RemoveFriendSerializer
 
 
 def login_required(endpoint):
@@ -71,7 +71,9 @@ class APIConsumer(WebsocketConsumer):
             "send_friend_request": Endpoint(endpoint=self.send_friend_request,
                                             serializer=SendFriendRequestSerializer),
             "respond_to_friend_request": Endpoint(endpoint=self.respond_to_friend_request,
-                                                  serializer=RespondToFriendRequestSerializer)
+                                                  serializer=RespondToFriendRequestSerializer),
+            'remove_friend': Endpoint(endpoint=self.remove_friend,
+                                      serializer=RemoveFriendSerializer)
         }
 
     def connect(self):
@@ -119,8 +121,9 @@ class APIConsumer(WebsocketConsumer):
         friend_request.reject_request()
         self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend request rejected.'})
 
-    def remove_friend(self, data):
-        pass
+    def remove_friend(self, friendship):
+        friendship.delete()
+        self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend removed.'})
 
     # CALLBACKS
 
