@@ -30,14 +30,9 @@ class EndpointInSerializer(serializers.Serializer):
         return {'endpoint': endpoint, 'content': endpoint_serializer}
 
 
-class SendMessageSerializer(serializers.Serializer):
+class SendMessageSerializer(ConsumerSpecificSerializer):
     friend = serializers.CharField()
     content = serializers.CharField()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
-        assert 'consumer' in self.context, AssertionError("Context missing key 'consumer'.")
-        self.consumer = self.context['consumer']
 
     def validate(self, data):
         friendship_queryset = self.consumer.user.friendships.filter(friend__username=data['friend'])
@@ -46,13 +41,8 @@ class SendMessageSerializer(serializers.Serializer):
         return {'friendship': friendship_queryset.first(), 'content': data['content']}
 
 
-class SendFriendRequestSerializer(serializers.Serializer):
+class SendFriendRequestSerializer(ConsumerSpecificSerializer):
     to_user = serializers.CharField()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
-        assert 'consumer' in self.context, AssertionError("Context missing key 'consumer'.")
-        self.consumer = self.context['consumer']
 
     def validate(self, data):
         to_user = data['to_user']
@@ -63,14 +53,9 @@ class SendFriendRequestSerializer(serializers.Serializer):
         return {'friend_request': friend_request}
 
 
-class RespondToFriendRequestSerializer(serializers.Serializer):
+class RespondToFriendRequestSerializer(ConsumerSpecificSerializer):
     from_user = serializers.CharField()
     accept = serializers.BooleanField()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
-        assert 'consumer' in self.context, AssertionError("Context missing key 'consumer'.")
-        self.consumer = self.context['consumer']
 
     def validate(self, data):
         from_user, accept = data['from_user'], data['accept']
