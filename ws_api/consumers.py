@@ -7,7 +7,7 @@ from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Friendship, FriendRequest, Message
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
 from .serializers import EndpointInSerializer, SendMessageSerializer, SendFriendRequestSerializer, \
-    RespondToFriendRequestSerializer, RemoveFriendSerializer
+    RespondToFriendRequestSerializer, RemoveFriendSerializer, WithdrawFriendRequestSerializer
 
 
 def login_required(endpoint):
@@ -73,7 +73,9 @@ class APIConsumer(WebsocketConsumer):
             "respond_to_friend_request": Endpoint(endpoint=self.respond_to_friend_request,
                                                   serializer=RespondToFriendRequestSerializer),
             'remove_friend': Endpoint(endpoint=self.remove_friend,
-                                      serializer=RemoveFriendSerializer)
+                                      serializer=RemoveFriendSerializer),
+            'withdraw_friend_request': Endpoint(endpoint=self.withdraw_friend_request,
+                                                serializer=WithdrawFriendRequestSerializer)
         }
 
     def connect(self):
@@ -122,6 +124,10 @@ class APIConsumer(WebsocketConsumer):
         friendship.delete()
         self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend removed.'})
 
+    def withdraw_friend_request(self, friend_request):
+        friend_request.delete()
+        self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend request withdrawn.'})
+
     # CALLBACKS
 
     def logout_callback(self, sender, request, user, **kwargs):
@@ -154,13 +160,3 @@ class APIConsumer(WebsocketConsumer):
         data = {'type': msg_type,
                 'content': content}
         self.send(json.dumps(data))
-
-
-
-
-
-
-
-
-
-

@@ -72,3 +72,14 @@ class RemoveFriendSerializer(ConsumerSpecificSerializer):
         if not friendship_queryset.exists():
             raise serializers.ValidationError('You do not have a friend with that name.')
         return {'friendship': friendship_queryset.first()}
+
+
+class WithdrawFriendRequestSerializer(ConsumerSpecificSerializer):
+    to_user = serializers.CharField()
+
+    def validate(self, data):
+        to_user = data['to_user']
+        friend_request_queryset = self.consumer.user.sent_friend_requests.filter(to_user__username=to_user)
+        if not friend_request_queryset.exists():
+            raise serializers.ValidationError('You do not have a pending friend request sent to that user.')
+        return {'friend_request': friend_request_queryset.first()}
