@@ -2,7 +2,7 @@ import json
 from channels.generic.websocket import WebsocketConsumer
 from asgiref.sync import async_to_sync
 from django.db.utils import IntegrityError
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Friendship, FriendRequest, Message
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
@@ -65,6 +65,7 @@ class APIConsumer(WebsocketConsumer):
         post_save.connect(receiver=self.received_message_callback, sender=Message)
         post_save.connect(receiver=self.received_friend_request_callback, sender=FriendRequest)
         post_save.connect(receiver=self.new_friend_callback, sender=Friendship)
+        post_delete.connect(receiver=self.removed_friend_callback, sender=Friendship)
         self.endpoints = {
             "send_message": Endpoint(endpoint=self.send_message,
                                      serializer=SendMessageSerializer),
@@ -153,6 +154,12 @@ class APIConsumer(WebsocketConsumer):
             return
         serializer = FriendshipOutSerializer(instance)
         self.wrap_and_send(msg_type="new_friend", content=serializer.data)
+
+    def removed_friend_callback(self, instance, **kwargs):
+        if not instance.user == self.user:
+            return
+        serializer = FriendshipOutSerializer(instance)
+        self.wrap_and_send(msg_type='removed_friend', content=serializer.data)
 
     # UTILITIES
 
