@@ -53,3 +53,20 @@ class SendFriendRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError('That user does not exists.', code='Not Found')
         friend_request = FriendRequest(from_user=self.consumer.user, to_user=to_user_queryset.first())
         return {'friend_request': friend_request}
+
+
+class RespondToFriendRequestSerializer(serializers.Serializer):
+    from_user = serializers.CharField()
+    accept = serializers.BooleanField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+        assert 'consumer' in self.context, AssertionError("Context missing key 'consumer'.")
+        self.consumer = self.context['consumer']
+
+    def validate(self, data):
+        from_user, accept = data['from_user'], data['accept']
+        friend_request_queryset = self.consumer.user.received_friend_requests.filter(from_user__username=from_user)
+        if not friend_request_queryset.exists():
+            raise serializers.ValidationError('You do not have any pending friend requests from that user.')
+        return {'friend_request': friend_request_queryset.first(), 'accept': accept}

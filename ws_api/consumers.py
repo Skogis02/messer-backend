@@ -6,7 +6,8 @@ from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Friendship, FriendRequest, Message
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
-from .serializers import EndpointInSerializer, SendMessageSerializer, SendFriendRequestSerializer
+from .serializers import EndpointInSerializer, SendMessageSerializer, SendFriendRequestSerializer, \
+    RespondToFriendRequestSerializer
 
 
 def login_required(endpoint):
@@ -64,9 +65,12 @@ class APIConsumer(WebsocketConsumer):
         post_save.connect(receiver=self.received_friend_request_callback, sender=FriendRequest)
         post_save.connect(receiver=self.new_friend_callback, sender=Friendship)
         self.endpoints = {
-            "send_message": Endpoint(endpoint=self.send_message, serializer=SendMessageSerializer),
-            "send_friend_request": Endpoint(endpoint=self.send_friend_request, serializer=SendFriendRequestSerializer),
-            "respond_to_friend_request": Endpoint(endpoint=self.send_friend_request)
+            "send_message": Endpoint(endpoint=self.send_message,
+                                     serializer=SendMessageSerializer),
+            "send_friend_request": Endpoint(endpoint=self.send_friend_request,
+                                            serializer=SendFriendRequestSerializer),
+            "respond_to_friend_request": Endpoint(endpoint=self.respond_to_friend_request,
+                                                  serializer=RespondToFriendRequestSerializer)
         }
 
     def connect(self):
@@ -129,23 +133,13 @@ class APIConsumer(WebsocketConsumer):
         -'accept': bool
         """
 
-        if 'from_user' not in data:
-            self.send("Object 'data' missing key 'from_user")
-            return
-        if 'accept' not in data:
-            self.send("Object 'data' missing key 'accept")
-            return
-        from_username, accept = data['from_user'], data['accept']
-        friend_request_queryset = FriendRequest.objects.filter(from_user__username=from_username)
-        if not friend_request_queryset.exists():
-            self.send('You do not have a pending request from that user!')
-            return
+        friend_request, accept = data['friend_request'], data['accept']
         if accept:
-            friend_request_queryset.first().accept_request()
-            self.send('Friend request accepted')
+            friend_request.accept_request()
+            self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend request accepted.'})
             return
-        friend_request_queryset.first().reject_request()
-        self.send('Friend request rejected')
+        friend_request.reject_request()
+        self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend request rejected.'})
 
     # CALLBACKS
 
