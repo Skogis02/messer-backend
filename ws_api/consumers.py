@@ -81,24 +81,11 @@ class APIConsumer(WebsocketConsumer):
             msg = json.loads(text_data)
         except json.JSONDecodeError as e:
             print(e)
-            self.send("Invalid format.")
+            self.wrap_and_send('Response', {'Error': 'Invalid format!'})
             return
-        # if 'endpoint' not in msg:
-        #     self.send("Missing key 'endpoint'.")
-        #     return
-        # elif 'content' not in msg:
-        #     self.send("Missing key 'content''.")
-        #     return
-        # msg_endpoint, msg_data = msg['endpoint'], msg['content']
-        # if not(self.endpoints and msg_endpoint in self.endpoints):
-        #     self.send("'Invalid endpoint.")
-        #     return
-        #endpoint = self.endpoints[msg_endpoint]
-        #endpoint(msg_data)
-
         serializer = EndpointInSerializer(data=msg, context={'consumer': self})
         if not serializer.is_valid():
-            self.wrap_and_send('Error', serializer.errors)
+            self.wrap_and_send('Response', serializer.errors)
             return
         endpoint, serializer = serializer.validated_data['endpoint'], serializer.validated_data['content']
         endpoint(serializer.validated_data)
@@ -109,24 +96,13 @@ class APIConsumer(WebsocketConsumer):
 
         """
         Required fields:
-        -'friend'
+        -'friendship'
         -'content'
         """
 
-        if 'friend' not in data:
-            self.send("Object 'data' missing key 'friend'.")
-            return
-        elif 'content' not in data:
-            self.send("Object 'data' missing key 'content'.")
-            return
-        friend_username = data['friend']
-        friend_queryset = self.user.friends.filter(username=friend_username)
-        if not friend_queryset.exists():
-            self.send("The provided user is not in your friends list.")
-        friend = friend_queryset.first()
-        friendship = self.user.friendships.filter(friend=friend).first()
+        friendship = data['friendship']
         Message.objects.create(friendship=friendship, content=data['content'])
-        self.send('Message sent!')
+        self.wrap_and_send('Confirmation', 'Message sent!')
 
     def send_friend_request(self, data):
 

@@ -1,5 +1,4 @@
 from rest_framework import serializers
-import json
 
 
 class EndpointInSerializer(serializers.Serializer):
@@ -18,8 +17,7 @@ class EndpointInSerializer(serializers.Serializer):
             return {'endpoint': endpoint, 'content': None}
         endpoint_serializer = endpoint.serializer(data=data['content'], context={'consumer': self.consumer})
         if not endpoint_serializer.is_valid():
-            print(self.errors)
-            raise serializers.ValidationError
+            raise serializers.ValidationError(endpoint_serializer.errors)
         return {'endpoint': endpoint, 'content': endpoint_serializer}
 
 
@@ -35,14 +33,6 @@ class SendMessageSerializer(serializers.Serializer):
     def validate(self, data):
         friendship_queryset = self.consumer.user.friendships.filter(friend__username=data['friend'])
         if not friendship_queryset.exists():
-            raise serializers.ValidationError
-        return data
-
-
-
-
-
-
-
-
-
+            raise serializers.ValidationError("That user is not in your friend list.", code='Forbidden')
+        validated_data = {'friendship': friendship_queryset.first(), 'content': data['content']}
+        return validated_data
