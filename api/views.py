@@ -10,7 +10,6 @@ from rest_framework.authentication import SessionAuthentication
 from .serializers import DefaultUserSerializer, DefaultLoginSerializer
 
 
-
 class Register(APIView):
 
     authentication_classes = []

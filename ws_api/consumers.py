@@ -54,7 +54,7 @@ class APIConsumer(WebsocketConsumer):
         content: {<OBJECT>}
         }
 
-        """
+    """
 
     def __init__(self):
         super().__init__(self)
@@ -78,7 +78,6 @@ class APIConsumer(WebsocketConsumer):
 
     def connect(self):
         self.user = self.scope['user']
-        print(self.user)
         if not (self.user and self.user.is_authenticated):
             self.close(code="Login required!")
             return
@@ -88,7 +87,6 @@ class APIConsumer(WebsocketConsumer):
         try:
             msg = json.loads(text_data)
         except json.JSONDecodeError as e:
-            print(e)
             self.wrap_and_send('Response', {'Error': 'Invalid format!'})
             return
         serializer = EndpointInSerializer(data=msg, context={'consumer': self})
@@ -110,7 +108,6 @@ class APIConsumer(WebsocketConsumer):
         except IntegrityError as e:
             self.wrap_and_send('Response', {'Error': 'You have already sent a friend request to that user.'})
         except AssertionError as e:
-            print(e)
             self.wrap_and_send('Response', {'Error': str(e)})
 
     def respond_to_friend_request(self, friend_request, accept):

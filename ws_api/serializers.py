@@ -5,19 +5,17 @@ from api.models import FriendRequest, DefaultUser
 class ConsumerSpecificSerializer(serializers.Serializer):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         assert 'consumer' in self.context, AssertionError("Context missing key 'consumer'.")
         self.consumer = self.context['consumer']
 
 
-class EndpointInSerializer(serializers.Serializer):
+class EndpointInSerializer(ConsumerSpecificSerializer):
     endpoint = serializers.ChoiceField(choices=[])
     content = serializers.JSONField()
 
     def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
-        assert 'consumer' in self.context, AssertionError("Context missing key 'consumer'.")
-        self.consumer = self.context['consumer']
+        super().__init__(*args, **kwargs)
         self.fields['endpoint'].choices = self.consumer.endpoints.keys()
 
     def validate(self, data):
