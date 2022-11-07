@@ -41,12 +41,15 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'api',
     'ws_api',
-    'rest_framework'
+    'rest_framework',
+    'corsheaders',
 ]
 
 ASGI_APPLICATION = 'messer_backend.asgi.application'
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -139,3 +142,13 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'api.DefaultUser'
+
+CORS_ALLOWED_ORIGINS = [
+    'http://127.0.0.1:3000'
+]
+
+CORS_EXPOSE_HEADERS = ['*']
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:3000']
