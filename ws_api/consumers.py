@@ -7,7 +7,8 @@ from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Friendship, FriendRequest, Message
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
 from .serializers import EndpointInSerializer, SendMessageSerializer, SendFriendRequestSerializer, \
-    RespondToFriendRequestSerializer, RemoveFriendSerializer, WithdrawFriendRequestSerializer
+    RespondToFriendRequestSerializer, RemoveFriendSerializer, WithdrawFriendRequestSerializer, \
+    GetMessagesSerializer
 
 
 def login_required(endpoint):
@@ -76,7 +77,8 @@ class APIConsumer(WebsocketConsumer):
             'remove_friend': Endpoint(endpoint=self.remove_friend,
                                       serializer=RemoveFriendSerializer),
             'withdraw_friend_request': Endpoint(endpoint=self.withdraw_friend_request,
-                                                serializer=WithdrawFriendRequestSerializer)
+                                                serializer=WithdrawFriendRequestSerializer),
+            'get_messages': Endpoint(endpoint=self.get_messages, serializer=GetMessagesSerializer)
         }
 
     def connect(self):
@@ -128,6 +130,23 @@ class APIConsumer(WebsocketConsumer):
     def withdraw_friend_request(self, friend_request):
         friend_request.delete()
         self.wrap_and_send('Response', {'Errors': '', 'status': 'Friend request withdrawn.'})
+
+    def get_messages(self):
+        received_messages = Message.objects.filter(friendship__friend = self.user)
+        sent_messages = Message.objects.filter(friendship__user = self.user)
+        received_messages_arr, sent_messages_arr = [], []
+        for message in received_messages:
+            serializer = MessageOutSerializer(message)
+            received_messages_arr.append(serializer.data)
+        for message in sent_messages:
+            serializer = MessageOutSerializer(message)
+            sent_messages_arr.append(serializer.data)
+        content = {
+            'received_messages': received_messages_arr,
+            'sent_messages': sent_messages_arr
+        }
+        self.wrap_and_send(msg_type='messages', content=content)
+
 
     # CALLBACKS
 

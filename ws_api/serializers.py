@@ -83,3 +83,8 @@ class WithdrawFriendRequestSerializer(ConsumerSpecificSerializer):
         if not friend_request_queryset.exists():
             raise serializers.ValidationError('You do not have a pending friend request sent to that user.')
         return {'friend_request': friend_request_queryset.first()}
+
+class GetMessagesSerializer(ConsumerSpecificSerializer):
+    
+    def validate(self, data):
+        return {}
