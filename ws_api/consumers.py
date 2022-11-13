@@ -8,7 +8,7 @@ from api.models import DefaultUser, Friendship, FriendRequest, Message
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
 from .serializers import EndpointInSerializer, SendMessageSerializer, SendFriendRequestSerializer, \
     RespondToFriendRequestSerializer, RemoveFriendSerializer, WithdrawFriendRequestSerializer, \
-    GetMessagesSerializer
+    GetMessagesSerializer, GetFriendRequestsSerializer
 
 
 def login_required(endpoint):
@@ -78,7 +78,9 @@ class APIConsumer(WebsocketConsumer):
                                       serializer=RemoveFriendSerializer),
             'withdraw_friend_request': Endpoint(endpoint=self.withdraw_friend_request,
                                                 serializer=WithdrawFriendRequestSerializer),
-            'get_messages': Endpoint(endpoint=self.get_messages, serializer=GetMessagesSerializer)
+            'get_messages': Endpoint(endpoint=self.get_messages, serializer=GetMessagesSerializer),
+            'get_friend_requests': Endpoint(endpoint=self.get_friend_requests, 
+                                                    serializer=GetFriendRequestsSerializer)
         }
 
     def connect(self):
@@ -147,6 +149,21 @@ class APIConsumer(WebsocketConsumer):
         }
         self.wrap_and_send(msg_type='messages', content=content)
 
+    def get_friend_requests(self):
+        received_friend_requests = FriendRequest.objects.filter(to_user = self.user)
+        sent_friend_requests = FriendRequest.objects.filter(from_user = self.user)
+        received_friend_requests_arr, sent_friend_requests_arr = [], []
+        for request in received_friend_requests:
+            serializer = FriendRequestOutSerializer(request)
+            received_friend_requests_arr.append(serializer.data)
+        for request in sent_friend_requests:
+            serializer = FriendRequestOutSerializer(request)
+            sent_friend_requests_arr.append(serializer.data)
+        content = {
+            'received_friend_request': received_friend_requests_arr,
+            'sent_friend_requests': sent_friend_requests_arr
+        }
+        self.wrap_and_send(msg_type='friend_requests', content=content)
 
     # CALLBACKS
 

@@ -88,3 +88,9 @@ class GetMessagesSerializer(ConsumerSpecificSerializer):
     
     def validate(self, data):
         return {}
+
+class GetFriendRequestsSerializer(ConsumerSpecificSerializer):
+
+    def validate(self, data):
+        return {}
+        

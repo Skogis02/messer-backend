@@ -32,10 +32,11 @@ class MessageOutSerializer(serializers.ModelSerializer):
 
 class FriendRequestOutSerializer(serializers.ModelSerializer):
     from_user = serializers.CharField(source='from_user.username')
+    to_user = serializers.CharField(source='to_user.username')
 
     class Meta:
         model = FriendRequest
-        fields = ['from_user', 'created_at']
+        fields = ['from_user', 'to_user', 'created_at']
 
 
 class FriendshipOutSerializer(serializers.ModelSerializer):
