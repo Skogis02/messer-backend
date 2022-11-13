@@ -23,10 +23,11 @@ class DefaultLoginSerializer(serializers.Serializer):
 
 class MessageOutSerializer(serializers.ModelSerializer):
     from_user = serializers.CharField(source='friendship.user')
+    to_user = serializers.CharField(source='friendship.friend')
 
     class Meta:
         model = Message
-        fields = ['from_user', 'created_at', 'has_been_read', 'read_at', 'content']
+        fields = ['from_user', 'to_user', 'created_at', 'has_been_read', 'read_at', 'content']
 
 
 class FriendRequestOutSerializer(serializers.ModelSerializer):
