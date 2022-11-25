@@ -160,7 +160,7 @@ class APIConsumer(WebsocketConsumer):
             serializer = FriendRequestOutSerializer(request)
             sent_friend_requests_arr.append(serializer.data)
         content = {
-            'received_friend_request': received_friend_requests_arr,
+            'received_friend_requests': received_friend_requests_arr,
             'sent_friend_requests': sent_friend_requests_arr
         }
         self.wrap_and_send(msg_type='friend_requests', content=content)
