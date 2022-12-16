@@ -48,15 +48,13 @@ class FriendRequest(models.Model):
     class Meta:
         unique_together = [['from_user', 'to_user']]
 
-    def accept_request(self) -> Friendship:
-        from_user = self.from_user
-        to_user = self.to_user
-        friendship, _ = Friendship.objects.get_or_create(user=from_user, friend=to_user)
+    def respond(self, accept: bool):
+        if not accept:
+            self.delete()
+            return
+        friendship, _ = Friendship.objects.get_or_create(user=self.from_user, friend=self.to_user)
         self.delete()
         return friendship
-
-    def reject_request(self):
-        self.delete()
 
 class Message(models.Model):
     friendship = models.ForeignKey(Friendship, on_delete=models.CASCADE, related_name='messages')

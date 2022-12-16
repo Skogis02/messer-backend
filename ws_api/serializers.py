@@ -35,3 +35,6 @@ class RespondToFriendRequestSerializer(BaseWsSerializer):
 
 class WithdrawFriendRequestSerializer(BaseWsSerializer):
     to_user = serializers.CharField(max_length=USERNAME_MAX_LENGTH)
+
+class RemoveFriendSerializer(BaseWsSerializer):
+    friend = serializers.CharField(max_length=USERNAME_MAX_LENGTH)
