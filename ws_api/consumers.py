@@ -1,6 +1,7 @@
 import json
 from channels.generic.websocket import WebsocketConsumer
 from asgiref.sync import async_to_sync
+from django.db import IntegrityError
 from django.db.models.signals import post_save, post_delete
 from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Message, FriendRequest, Friendship
@@ -89,47 +90,42 @@ class APIConsumer(WebsocketConsumer):
 
     # ENDPOINTS:
 
-    def send_message_endpoint(self, data):
-        serializer = SendMessageSerializer(data=data['content'])
-        if not serializer.is_valid():
-            self.respond('send_message', data['id'], errors=[Error('Serialization Error', code='1')])
-            return
-        friendship_queryset = self.user.friendships.filter(friend__username=serializer.data['friend'])
+    @api_endpoint('send_message', '1', SendMessageSerializer)
+    def send_message_endpoint(self, content):
+        friendship_queryset = self.user.friendships.filter(friend__username=content['friend'])
         if not friendship_queryset.exists():
-            self.respond('send_message', data['id'], errors=[Error('User not in friend list.', code='2')])
-            return
-        Message.objects.create(friendship=friendship_queryset.first(), content=serializer.data['content'])
-        self.respond('send_message,', data['id'], 'Message sent.')
+            return {'errors': [Error('That user is not in your friend list.', '1')]}
+        Message.objects.create(friendship=friendship_queryset.first(), content=content['content'])
+        return {'content': 'Message sent.'}
 
-    def send_friend_request_endpoint(self, data):
-        serializer = SendFriendRequestSerializer(data=data['content'])
-        if not serializer.is_valid():
-            self.respond('send_friend_request', data['id'], errors=[Error('Serialization Error', code='1')])
-            return
-        to_user_queryset = DefaultUser.objects.filter(username=serializer.data['to_user'])
+    @api_endpoint('send_friend_request', '2', SendFriendRequestSerializer)
+    def send_friend_request_endpoint(self, content):
+        to_user_queryset = DefaultUser.objects.filter(username=content['to_user'])
         if not to_user_queryset.exists():
-            self.respond('send_friend_request', data['id'], errors=[Error('User not found.', code='2')])
-            return
+            return {'errors': [Error('User not found.', code='2')]}
         try:
             FriendRequest.objects.create(from_user=self.user, to_user=to_user_queryset.first())
         except AssertionError as e:
-            self.respond('send_friend_request', data['id'], errors=[Error('That user is already your friend.', code='3')])
-            return
-        self.respond('send_friend_request', data['id'], 'Friend Request Sent.')
+            code = e.args[0]['code']
+            if code == 1:
+                return {'errors': [Error('That user is you.', code='3', content='You cannot send a friend request to yourself.')]}
+            elif code == 2:
+                return {'errors': [Error('That user is already your friend.', code='3')]}
+            else:
+                return {'errors': [Error('Unknown error.', code='5')]}
+        except IntegrityError as e:
+            return {'errors': [Error('You have already sent a friend request to that user.', code='4')]}
+        return {'content': 'Friend Request Sent.'}
 
-    def respond_to_friend_request_endpoint(self, data):
-        serializer = RespondToFriendRequestSerializer(data=data['content'])
-        if not serializer.is_valid():
-            self.respond('respond_to_friend_request', data['id'], errors=[Error('Serialization Error', code='1')])
-            return
-        friend_request_queryset = self.user.received_friend_requests.filter(from_user__username=serializer.data['from_user'])
+    @api_endpoint('respond_to_friend_request', '3', RespondToFriendRequestSerializer)
+    def respond_to_friend_request_endpoint(self, content):
+        friend_request_queryset = self.user.received_friend_requests.filter(from_user__username=content['from_user'])
         if not friend_request_queryset.exists():
-            self.respond('respond_to_friend_request', data['id'], errors=[Error('No friend requests received from that user.', code='2')])
-            return
-        accept = serializer.data['accept']
+            return {'errors': [Error('No friend requests received from that user.', code='2')]}
+        accept = content['accept']
         friend_request_queryset.first().respond(accept)
         indicator = 'accepted' if accept else 'rejected'
-        self.respond('respond_to_friend_request', data['id'], f'Friend request {indicator}.' )
+        return {'content': f'Friend request {indicator}.'}
 
     @api_endpoint('remove_friend', '5', RemoveFriendSerializer)
     def remove_friend_endpoint(self, content):

@@ -35,15 +35,16 @@ class Friendship(models.Model):
 
 class FriendRequestManager(models.Manager):
     def create(self, from_user: DefaultUser, to_user: DefaultUser):
-        friendship_queryset = from_user.friendships.filter(friend__username=to_user.username)
-        assert not friendship_queryset.exists(), AssertionError('User already friend in friend list.')
+        assert not from_user == to_user, {'error': 'Friend is user.', 'code': 1}
+        friendship_queryset = from_user.friendships.filter(friend = to_user)
+        assert not friendship_queryset.exists(), {'error': 'User already in friend list.', 'code': 2}
         self.super().create(from_user=from_user, to_user=to_user)
 
 class FriendRequest(models.Model):
     from_user = models.ForeignKey(DefaultUser, on_delete=models.CASCADE, related_name='sent_friend_requests')
     to_user = models.ForeignKey(DefaultUser, on_delete=models.CASCADE, related_name='received_friend_requests')
     created_at = models.DateTimeField(auto_now_add=True)
-    objects = FriendRequestManager
+    objects = FriendRequestManager()
 
     class Meta:
         unique_together = [['from_user', 'to_user']]
