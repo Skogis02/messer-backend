@@ -4,7 +4,7 @@ import json
 @dataclass
 class Error:
     error: str
-    code: int
+    code: str
     content: str = ''
 
     def as_dict(self):
@@ -17,7 +17,7 @@ class Error:
 @dataclass
 class Response:
     endpoint: str
-    id: int
+    id: str
     content: dict = field(default_factory=dict)
     errors: list[Error] = field(default_factory=list)
 

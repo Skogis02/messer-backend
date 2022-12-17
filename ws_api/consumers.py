@@ -4,10 +4,12 @@ from asgiref.sync import async_to_sync
 from django.db.models.signals import post_save, post_delete
 from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Message, FriendRequest, Friendship
-from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer
+from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer, MessagesOutSerializer, \
+    FriendRequestsOutSerializer
 from .dataclasses_ import Error, Response
 from .serializers import BaseWsSerializer, WsMessageSerializer, SendMessageSerializer, SendFriendRequestSerializer, \
     RespondToFriendRequestSerializer, WithdrawFriendRequestSerializer, RemoveFriendSerializer
+from typing import Union
 
 class APIConsumer(WebsocketConsumer):
 
@@ -26,22 +28,25 @@ class APIConsumer(WebsocketConsumer):
     def api_endpoint(
         endpoint_str: str,
         error_code_prefix: str,
-        serializer: BaseWsSerializer,
+        serializer: Union[BaseWsSerializer, None] = None,
         ):
             def decorated_endpoint(func: callable):
                 def endpoint(
                     self,
                     data,
                 ):
-                    content = serializer(data=data['content'])
-                    if not content.is_valid():
-                        self.respond(
-                            endpoint_str,
-                            data['id'],
-                            error_code_prefix,
-                            errors=[Error('Serialization error', code=error_code_prefix + '0')]
+                    if serializer is None: 
+                        result = func(self)
+                    else:
+                        content = serializer(data=data['content'])
+                        if not content.is_valid():
+                            self.respond(
+                                endpoint_str,
+                                data['id'],
+                                error_code_prefix,
+                                errors=[Error('Serialization error', code=error_code_prefix + '0')]
                         )
-                    result = func(self, content)
+                        result = func(self, content.data)
                     if 'errors' in result:
                         for error in result['errors']:
                             error.code = error_code_prefix + error.code
@@ -87,11 +92,11 @@ class APIConsumer(WebsocketConsumer):
     def send_message_endpoint(self, data):
         serializer = SendMessageSerializer(data=data['content'])
         if not serializer.is_valid():
-            self.respond('send_message', data['id'], errors=[Error('Serialization Error', code=11)])
+            self.respond('send_message', data['id'], errors=[Error('Serialization Error', code='1')])
             return
         friendship_queryset = self.user.friendships.filter(friend__username=serializer.data['friend'])
         if not friendship_queryset.exists():
-            self.respond('send_message', data['id'], errors=[Error('User not in friend list.', code=12)])
+            self.respond('send_message', data['id'], errors=[Error('User not in friend list.', code='2')])
             return
         Message.objects.create(friendship=friendship_queryset.first(), content=serializer.data['content'])
         self.respond('send_message,', data['id'], 'Message sent.')
@@ -99,27 +104,27 @@ class APIConsumer(WebsocketConsumer):
     def send_friend_request_endpoint(self, data):
         serializer = SendFriendRequestSerializer(data=data['content'])
         if not serializer.is_valid():
-            self.respond('send_friend_request', data['id'], errors=[Error('Serialization Error', code=21)])
+            self.respond('send_friend_request', data['id'], errors=[Error('Serialization Error', code='1')])
             return
         to_user_queryset = DefaultUser.objects.filter(username=serializer.data['to_user'])
         if not to_user_queryset.exists():
-            self.respond('send_friend_request', data['id'], errors=[Error('User not found.', code=22)])
+            self.respond('send_friend_request', data['id'], errors=[Error('User not found.', code='2')])
             return
         try:
             FriendRequest.objects.create(from_user=self.user, to_user=to_user_queryset.first())
         except AssertionError as e:
-            self.respond('send_friend_request', data['id'], errors=[Error('That user is already your friend.', code=23)])
+            self.respond('send_friend_request', data['id'], errors=[Error('That user is already your friend.', code='3')])
             return
         self.respond('send_friend_request', data['id'], 'Friend Request Sent.')
 
     def respond_to_friend_request_endpoint(self, data):
         serializer = RespondToFriendRequestSerializer(data=data['content'])
         if not serializer.is_valid():
-            self.respond('respond_to_friend_request', data['id'], errors=[Error('Serialization Error', code=31)])
+            self.respond('respond_to_friend_request', data['id'], errors=[Error('Serialization Error', code='1')])
             return
         friend_request_queryset = self.user.received_friend_requests.filter(from_user__username=serializer.data['from_user'])
         if not friend_request_queryset.exists():
-            self.respond('respond_to_friend_request', data['id'], errors=[Error('No friend requests received from that user.', code=32)])
+            self.respond('respond_to_friend_request', data['id'], errors=[Error('No friend requests received from that user.', code='2')])
             return
         accept = serializer.data['accept']
         friend_request_queryset.first().respond(accept)
@@ -134,14 +139,23 @@ class APIConsumer(WebsocketConsumer):
         friend_queryset.first().delete()
         return {'content': 'Friend removed.'}
 
-    def withdraw_friend_request_endpoint(self, data):
-        pass
+    @api_endpoint('withdraw_friend_request', '6', WithdrawFriendRequestSerializer)
+    def withdraw_friend_request_endpoint(self, content):
+        friend_request_queryset = self.user.sent_friend_requests.filter(to_user__username=content['to_user'])
+        if not friend_request_queryset.exists():
+            return {'errors': [Error('No friend requests received from that user.', code='2')]}
+        friend_request_queryset.first().delete()
+        return {'content': 'Friend request withdrawn.'}
 
-    def get_messages_endpoint(self, data):
-        pass
-
-    def get_friend_requests_endpoint(self, data):
-        pass
+    @api_endpoint('get_messages', '7')
+    def get_messages_endpoint(self):
+        serializer = MessagesOutSerializer(self.user)
+        return {'content': serializer.data}
+        
+    @api_endpoint('get_friend_requests', '8')
+    def get_friend_requests_endpoint(self):
+        serializer = FriendRequestsOutSerializer(self.user)
+        return {'content': serializer.data}
 
     # CALLBACKS
 
@@ -185,7 +199,7 @@ class APIConsumer(WebsocketConsumer):
     def respond(
         self,
         endpoint: str = '',
-        id: int = 0,
+        id: str = '',
         content: dict = {},
         errors: list = []
     ):

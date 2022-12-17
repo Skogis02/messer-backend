@@ -25,7 +25,7 @@ class FriendshipQuerySet(models.QuerySet):
 
 class Friendship(models.Model):
     user = models.ForeignKey(DefaultUser, on_delete=models.CASCADE, related_name='friendships')
-    friend = models.ForeignKey(DefaultUser, on_delete=models.CASCADE)
+    friend = models.ForeignKey(DefaultUser, on_delete=models.CASCADE, related_name='incoming_friendships')
     reversed = models.ForeignKey('Friendship', on_delete=models.CASCADE, null=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True)
     objects = FriendshipQuerySet.as_manager()
