@@ -14,7 +14,7 @@ Generic Errors:
 ?0: Invalid JSON
 ?1: Serialization Error
 
-## Endpoints:
+## Endpoints
 
 ### "send_message"
 
@@ -93,3 +93,12 @@ Errors:
 ### "get_friend_requests"
 
     "content": {}
+
+
+## Callbacks
+
+1: "connection_closing"
+2: "received_message"
+3: "new_friend_request"
+4: "new_friend"
+5: "removed_friend"
