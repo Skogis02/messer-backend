@@ -54,12 +54,13 @@ class FriendshipsOutSerializer(serializers.ModelSerializer):
         fields = ['friends']
 
 class FriendshipMessagesOutSerializer(serializers.ModelSerializer):
+    user = serializers.CharField(source='user.username')
     friend = serializers.CharField(source='friend.username')
     messages = MessageOutSerializer(many=True)
 
     class Meta:
         model = Friendship
-        fields = ['friend', 'created_at', 'messages']
+        fields = ['user', 'friend', 'created_at', 'messages']
 
 class MessagesOutSerializer(serializers.ModelSerializer):
     friendships = FriendshipMessagesOutSerializer(many=True)
