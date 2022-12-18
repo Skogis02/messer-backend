@@ -46,6 +46,12 @@ class FriendshipOutSerializer(serializers.ModelSerializer):
         model = Friendship
         fields = ['friend', 'created_at']
 
+class FriendshipsOutSerializer(serializers.ModelSerializer):
+    friends = FriendshipOutSerializer(many=True, source='friendships')
+
+    class Meta:
+        model = DefaultUser
+        fields = ['friends']
 
 class FriendshipMessagesOutSerializer(serializers.ModelSerializer):
     friend = serializers.CharField(source='friend.username')

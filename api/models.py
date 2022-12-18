@@ -38,7 +38,7 @@ class FriendRequestManager(models.Manager):
         assert not from_user == to_user, {'error': 'Friend is user.', 'code': 1}
         friendship_queryset = from_user.friendships.filter(friend = to_user)
         assert not friendship_queryset.exists(), {'error': 'User already in friend list.', 'code': 2}
-        self.super().create(from_user=from_user, to_user=to_user)
+        super().create(from_user=from_user, to_user=to_user)
 
 class FriendRequest(models.Model):
     from_user = models.ForeignKey(DefaultUser, on_delete=models.CASCADE, related_name='sent_friend_requests')

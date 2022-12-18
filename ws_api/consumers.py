@@ -6,8 +6,8 @@ from django.db.models.signals import post_save, post_delete
 from django.contrib.auth.signals import user_logged_out
 from api.models import DefaultUser, Message, FriendRequest, Friendship
 from api.serializers import MessageOutSerializer, FriendRequestOutSerializer, FriendshipOutSerializer, MessagesOutSerializer, \
-    FriendRequestsOutSerializer
-from .dataclasses_ import Error, Response
+    FriendRequestsOutSerializer, FriendshipsOutSerializer
+from .dataclasses_ import Error, Response, Callback
 from .serializers import BaseWsSerializer, WsMessageSerializer, SendMessageSerializer, SendFriendRequestSerializer, \
     RespondToFriendRequestSerializer, WithdrawFriendRequestSerializer, RemoveFriendSerializer
 from typing import Union
@@ -102,13 +102,13 @@ class APIConsumer(WebsocketConsumer):
     def send_friend_request_endpoint(self, content):
         to_user_queryset = DefaultUser.objects.filter(username=content['to_user'])
         if not to_user_queryset.exists():
-            return {'errors': [Error('User not found.', code='2')]}
+            return {'errors': [Error('User not found.', code='1')]}
         try:
             FriendRequest.objects.create(from_user=self.user, to_user=to_user_queryset.first())
         except AssertionError as e:
             code = e.args[0]['code']
             if code == 1:
-                return {'errors': [Error('That user is you.', code='3', content='You cannot send a friend request to yourself.')]}
+                return {'errors': [Error('That user is you.', code='2', content='You cannot send a friend request to yourself.')]}
             elif code == 2:
                 return {'errors': [Error('That user is already your friend.', code='3')]}
             else:
@@ -127,15 +127,7 @@ class APIConsumer(WebsocketConsumer):
         indicator = 'accepted' if accept else 'rejected'
         return {'content': f'Friend request {indicator}.'}
 
-    @api_endpoint('remove_friend', '5', RemoveFriendSerializer)
-    def remove_friend_endpoint(self, content):
-        friend_queryset = self.user.friendships.filter(friend__username=content['friend'])
-        if not friend_queryset.exists():
-            return {'errors': [Error('That user is not your friend.', code='1')]}
-        friend_queryset.first().delete()
-        return {'content': 'Friend removed.'}
-
-    @api_endpoint('withdraw_friend_request', '6', WithdrawFriendRequestSerializer)
+    @api_endpoint('withdraw_friend_request', '5', WithdrawFriendRequestSerializer)
     def withdraw_friend_request_endpoint(self, content):
         friend_request_queryset = self.user.sent_friend_requests.filter(to_user__username=content['to_user'])
         if not friend_request_queryset.exists():
@@ -143,12 +135,25 @@ class APIConsumer(WebsocketConsumer):
         friend_request_queryset.first().delete()
         return {'content': 'Friend request withdrawn.'}
 
-    @api_endpoint('get_messages', '7')
+    @api_endpoint('remove_friend', '6', RemoveFriendSerializer)
+    def remove_friend_endpoint(self, content):
+        friend_queryset = self.user.friendships.filter(friend__username=content['friend'])
+        if not friend_queryset.exists():
+            return {'errors': [Error('That user is not your friend.', code='1')]}
+        friend_queryset.first().delete()
+        return {'content': 'Friend removed.'}
+
+    @api_endpoint('get_friends', '7')
+    def get_friends_endpoint(self):
+        serializer = FriendshipsOutSerializer(self.user)
+        return {'content': serializer.data}
+
+    @api_endpoint('get_messages', '8')
     def get_messages_endpoint(self):
         serializer = MessagesOutSerializer(self.user)
         return {'content': serializer.data}
         
-    @api_endpoint('get_friend_requests', '8')
+    @api_endpoint('get_friend_requests', '9')
     def get_friend_requests_endpoint(self):
         serializer = FriendRequestsOutSerializer(self.user)
         return {'content': serializer.data}
@@ -158,39 +163,34 @@ class APIConsumer(WebsocketConsumer):
     def logout_callback(self, sender, request, user, **kwargs):
         if not self.user == user:
             return
-        self.send("Connection closing: Logging out.")
+        self.callback('connection_closing', '1')
         async_to_sync(self.close())
 
     def received_message_callback(self, instance, created, **kwargs):
         if not (created and instance.friendship.friend == self.user):
             return
         serializer = MessageOutSerializer(instance)
-        self.wrap_and_send(msg_type="received_message", content=serializer.data)
+        self.callback("received_message", '2', serializer.data)
 
     def received_friend_request_callback(self, instance, created, **kwargs):
         if not (created and instance.to_user == self.user):
             return
         serializer = FriendRequestOutSerializer(instance)
-        self.wrap_and_send(msg_type="new_friend_request", content=serializer.data)
+        self.callback("new_friend_request", '3', serializer.data)
 
     def new_friend_callback(self, instance, created, **kwargs):
         if not (created and instance.user == self.user):
             return
         serializer = FriendshipOutSerializer(instance)
-        self.wrap_and_send(msg_type="new_friend", content=serializer.data)
+        self.callback("new_friend", '4', serializer.data)
 
     def removed_friend_callback(self, instance, **kwargs):
         if not instance.user == self.user:
             return
         serializer = FriendshipOutSerializer(instance)
-        self.wrap_and_send(msg_type='removed_friend', content=serializer.data)
+        self.callback('removed_friend', '5', serializer.data)
 
     # UTILITIES
-
-    def wrap_and_send(self, msg_type, content):
-        data = {'type': msg_type,
-                'content': content}
-        self.send(json.dumps(data))
 
     def respond(
         self,
@@ -206,8 +206,17 @@ class APIConsumer(WebsocketConsumer):
             errors
         ).as_dict()
         self.send(json.dumps(
-            response
+            {"response": response}
         ))
+
+    def callback(
+        self,
+        type: str = '',
+        code: str = '',
+        content: dict = {}
+    ):
+        callback = Callback(type, code, content)
+        self.send(json.dumps({"callback": callback.as_dict()}))
 
 
 ENDPOINT_LIST = [method.removesuffix('_endpoint') for method in dir(APIConsumer) \

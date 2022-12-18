@@ -28,3 +28,16 @@ class Response:
             'content': self.content,
             'errors': [error.as_dict() for error in self.errors]
         }
+
+@dataclass
+class Callback:
+    type: str
+    code: str
+    content: dict = field(default_factory=dict)
+
+    def as_dict(self):
+        return {
+            'type': self.type,
+            'code': self.code,
+            'content': self.content
+        }

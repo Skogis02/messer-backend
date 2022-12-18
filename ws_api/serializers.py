@@ -14,7 +14,7 @@ class WsMessageContent(serializers.Field):
         return value
 
 class WsMessageSerializer(BaseWsSerializer):
-    id = serializers.CharField(max_length=10)
+    id = serializers.CharField(max_length=10, required=False, default=None)
     endpoint = serializers.ChoiceField(choices=[])
     content = WsMessageContent()
 
